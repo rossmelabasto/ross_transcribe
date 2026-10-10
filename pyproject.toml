@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ross-transcribe"
+version = "0.1.0"
+description = "Local, offline audio & video transcription from the terminal — interactive picker, timestamps and subtitles. Powered by faster-whisper."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Rossmel Abasto" }]
+requires-python = ">=3.10"
+keywords = ["whisper", "faster-whisper", "transcription", "speech-to-text", "subtitles", "srt", "cli", "tui"]
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "Natural Language :: English",
+  "Natural Language :: Spanish",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+dependencies = [
+  "faster-whisper>=1.1",
+  "numpy>=1.24",
+  "questionary>=2.1",
+  "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://github.com/rossmelabasto/ross_transcribe"
+Issues = "https://github.com/rossmelabasto/ross_transcribe/issues"
+Changelog = "https://github.com/rossmelabasto/ross_transcribe/blob/main/CHANGELOG.md"
+
+[project.scripts]
+transcribe = "ross_transcribe.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ross_transcribe"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]

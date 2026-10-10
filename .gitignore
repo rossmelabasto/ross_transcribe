@@ -1,0 +1,23 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Never commit personal recordings or their transcripts
+*.ogg
+*.opus
+*.m4a
+*.wav
+*.mp3
+*.mp4
+*.txt
+*.srt
+!docs/demo/*.ogg
+!docs/demo/*.txt
+!docs/demo/*.srt
+!requirements*.txt
