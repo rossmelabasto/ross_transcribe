@@ -141,4 +141,4 @@ Ver [CONTRIBUTING.md](CONTRIBUTING.md) y [docs/ARCHITECTURE.md](docs/ARCHITECTUR
 
 ## Licencia
 
-[MIT](LICENSE) © Rossmel Abasto — [portfolio.rossmel.top](https://portfolio.rossmel.top)
+[MIT](LICENSE) © Rossmel Abasto — [portfolio.rossmel.com](https://portfolio.rossmel.com)
