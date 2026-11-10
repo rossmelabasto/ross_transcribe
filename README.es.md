@@ -30,6 +30,23 @@ Elige notas de voz, grabaciones o videos desde un menú interactivo (o pásalos 
 
 ## Instalación
 
+### Desde el repositorio (Linux)
+
+Paquetes firmados para pacman (CachyOS, Arch), APT (Ubuntu, Debian) y DNF (Fedora). Traen su
+propio Python, así que no necesitas uno, y `ffmpeg` llega como dependencia. Agrega el
+repositorio una vez ([instrucciones](https://repo.rossmel.com/repository/)) y luego:
+
+```bash
+sudo pacman -S ross-transcribe-bin   # CachyOS, Arch
+sudo apt install ross-transcribe     # Ubuntu, Debian
+sudo dnf install ross-transcribe     # Fedora
+```
+
+Incluyen [`record`](#record) y `transcribir` (la misma CLI con la interfaz y el audio en español
+por defecto). Más en [repo.rossmel.com/transcribe](https://repo.rossmel.com/transcribe/).
+
+### Con pipx o uv (Linux y macOS)
+
 Necesitas **Python 3.10+** y **ffmpeg**.
 
 ```bash
@@ -46,6 +63,21 @@ uv tool install git+https://github.com/rossmelabasto/ross_transcribe
 Opcional: instala [`fd`](https://github.com/sharkdp/fd) para que la búsqueda en toda la máquina sea mucho más rápida.
 
 La primera vez descarga el modelo de Whisper (~460 MB el `small`, que viene por defecto) desde Hugging Face; después todo funciona sin internet.
+
+## record
+
+`record` graba del micrófono con un medidor de nivel en vivo y, cuando paras, te ofrece
+transcribir lo que dijiste. Viene con los paquetes; necesita SoX y `pactl`.
+
+```bash
+record                    # graba hasta Ctrl+C y luego eliges: transcribir, guardar un .txt o nada
+record -s -t idea         # empieza cuando hablas, para tras 3 s de silencio y transcribe
+record clase -c -o        # limpia el audio y guarda la transcripción al lado
+record -l                 # lista los micrófonos; -i <nombre> elige uno
+```
+
+Las grabaciones van a `~/Recordings` (o `RECORD_DIR`). `record -h` muestra todas las opciones.
+Sus mensajes están en inglés.
 
 ## Uso
 

@@ -1,0 +1,54 @@
+# Packages for repo.rossmel.com, built by packaging/build.sh (VERSION, STAGE and PKG_NAME come
+# from it). One tree, three formats: deb, rpm and pacman.
+name: ${PKG_NAME}
+arch: amd64
+platform: linux
+version: ${VERSION}
+release: 1
+section: sound
+priority: optional
+maintainer: Rossmel Abasto <packages@rossmel.com>
+vendor: Rossmel Abasto
+homepage: https://repo.rossmel.com/transcribe/
+license: MIT
+description: |-
+  Local, offline audio and video transcription from the terminal.
+  An interactive picker, timestamps and subtitles, powered by faster-whisper.
+  Includes record, which records from the microphone and offers to transcribe it.
+
+contents:
+  - src: ${STAGE}/opt/ross-transcribe
+    dst: /opt/ross-transcribe
+    type: tree
+  - src: ${STAGE}/usr/bin/transcribe
+    dst: /usr/bin/transcribe
+    file_info: { mode: 0755 }
+  - src: ${STAGE}/usr/bin/transcribir
+    dst: /usr/bin/transcribir
+    file_info: { mode: 0755 }
+  - src: ${STAGE}/usr/bin/record
+    dst: /usr/bin/record
+    file_info: { mode: 0755 }
+  - src: ${STAGE}/usr/share/licenses/ross-transcribe/LICENSE
+    dst: /usr/share/licenses/ross-transcribe/LICENSE
+  - src: ${STAGE}/usr/share/doc/ross-transcribe/README.md
+    dst: /usr/share/doc/ross-transcribe/README.md
+
+overrides:
+  deb:
+    depends: [ffmpeg]
+    # record: SoX with PulseAudio input (served by PipeWire) and pactl. fd makes search faster.
+    recommends: [sox, libsox-fmt-pulse, pulseaudio-utils, fd-find]
+  rpm:
+    depends: [/usr/bin/ffmpeg]
+    recommends: [sox, pulseaudio-utils, perl-interpreter, fd-find]
+  archlinux:
+    depends: [ffmpeg, sox, libpulse, perl]
+    provides: [ross-transcribe]
+    conflicts: [ross-transcribe]
+
+deb:
+  compression: zstd
+rpm:
+  compression: zstd
+  summary: Local, offline transcription from the terminal

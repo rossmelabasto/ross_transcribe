@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# record — record audio from the microphone with a live level meter, then
+# offer to transcribe it with `transcribe` (github.com/rossmelabasto/ross_transcribe).
+#
+# Uses SoX. SoX's "default" device doesn't always see PipeWire's default source
+# (on some machines it records digital silence), so the source is resolved with
+# `pactl get-default-source` and passed by name.
+set -u
+
+DIR="${RECORD_DIR:-$HOME/Recordings}"
+FMT="ogg"
+SOURCE=""
+SILENCE=""
+LIMIT=""
+CLEAN=0
+LANG_SPOKEN="${TRANSCRIBE_LANG:-auto}"
+MODE="ask"   # ask | screen | txt | none
+
+M=$'\e[38;2;203;166;247m'; G=$'\e[38;2;166;227;161m'; B=$'\e[38;2;137;180;250m'
+R=$'\e[38;2;243;139;168m'; D=$'\e[38;2;108;112;134m'; BOLD=$'\e[1m'; X=$'\e[0m'
+BADGE=$'\e[1;38;2;30;30;46;48;2;203;166;247m'
+
+usage() {
+  cat <<EOF
+${BADGE} record ${X} record audio from the microphone, with a live level meter
+
+${BOLD}Usage:${X} record [options] [name]
+
+  Saves to ${DIR}/YYYY-MM-DD_HH-MM-SS[_name].${FMT}
+  Ctrl+C stops recording. Then it asks whether to transcribe it.
+
+${BOLD}Options:${X}
+  -s [SEC]   stop after SEC seconds of silence (default 3) and only start
+             saving once there is sound
+  -d DUR     maximum duration: seconds or m:ss (e.g. 90, 5:00)
+  -c         clean up afterwards: remove low rumble and normalize volume
+  -f FMT     format: ogg (default), flac, wav, mp3
+  -i SOURCE  PipeWire source (default: the system one; see -l)
+  -l         list available sources
+  -L LANG    spoken language for the transcript: auto (default), es, en…
+  -t         transcribe when done, without asking (on screen)
+  -o         transcribe when done and save a .txt with timestamps
+  -n         don't transcribe or ask
+  -h         this help
+
+${BOLD}Examples:${X}
+  record                      record until Ctrl+C
+  record networks-class -c -o record, clean up and save the transcript
+  record -s -t idea           stop when you go quiet and transcribe
+  record -d 1:00 -L en        record exactly one minute, English transcript
+
+Folder: RECORD_DIR environment variable.
+EOF
+}
+
+die() { printf '%s✗%s %s\n' "$R" "$X" "$1" >&2; exit 1; }
+
+list_sources() {
+  local def; def=$(pactl get-default-source 2>/dev/null)
+  pactl list sources 2>/dev/null | awk -v def="$def" '
+    /^\s*Name: /        { name=$2 }
+    /^\s*Description: / { sub(/^\s*Description: /, ""); mark = (name == def) ? "*" : " ";
+                          printf "%s %-45s %s\n", mark, name, $0 }'
+}
+
+source_label() {
+  pactl list sources 2>/dev/null | awk -v want="$1" '
+    /^\s*Name: /        { name=$2 }
+    /^\s*Description: / { if (name == want) { sub(/^\s*Description: /, ""); print; exit } }'
+}
+
+# Let SoX's live meter through (lines ending in \r) and hide the input file
+# details and the final "Aborted."/"Done.". Ignores Ctrl+C so output isn't cut.
+meter_only() {
+  perl -e '$SIG{INT}="IGNORE"; $|=1; my $b="";
+    while (read(STDIN, my $c, 1)) { $b .= $c;
+      if ($c eq "\r" || $c eq "\n") {
+        print $b unless $b =~ /^(Input File|Channels|Sample Rate|Precision|Sample Encoding|Aborted|Done|\s*$)/;
+        $b = "" } }
+    print $b'
+}
+
+# --- options (-s takes an optional number) ---
+args=("$@"); i=0; NAME=""
+while (( i < ${#args[@]} )); do
+  a="${args[$i]}"
+  case "$a" in
+    -h|--help) usage; exit 0 ;;
+    -l) list_sources; exit 0 ;;
+    -s) next="${args[$((i+1))]:-}"
+        if [[ "$next" =~ ^[0-9]+([.][0-9]+)?$ ]]; then SILENCE="$next"; ((i++)); else SILENCE=3; fi ;;
+    -d) LIMIT="${args[$((i+1))]:-}"; ((i++)); [[ -n "$LIMIT" ]] || die "-d needs a duration" ;;
+    -c) CLEAN=1 ;;
+    -f) FMT="${args[$((i+1))]:-}"; ((i++))
+        [[ "$FMT" =~ ^(ogg|flac|wav|mp3)$ ]] || die "unsupported format: $FMT (ogg, flac, wav, mp3)" ;;
+    -i) SOURCE="${args[$((i+1))]:-}"; ((i++)) ;;
+    -L) LANG_SPOKEN="${args[$((i+1))]:-}"; ((i++)); [[ -n "$LANG_SPOKEN" ]] || die "-L needs a language" ;;
+    -t) MODE="screen" ;;
+    -o) MODE="txt" ;;
+    -n) MODE="none" ;;
+    -*) die "unknown option: $a (record -h)" ;;
+    *)  NAME="$a" ;;
+  esac
+  ((i++))
+done
+
+command -v sox >/dev/null || die "SoX is missing: install the sox package"
+command -v pactl >/dev/null || die "pactl is missing: install pipewire-pulse or pulseaudio-utils"
+[[ -n "$SOURCE" ]] || SOURCE=$(pactl get-default-source 2>/dev/null)
+[[ -n "$SOURCE" ]] || die "no audio source found (is PipeWire running?)"
+
+mkdir -p "$DIR"
+stamp=$(date +%F_%H-%M-%S)
+slug=""
+if [[ -n "$NAME" ]]; then
+  slug="_$(printf '%s' "$NAME" | tr ' /' '--' | tr -cd '[:alnum:]_.-')"
+fi
+OUT="$DIR/${stamp}${slug}.${FMT}"
+SHORT="${OUT/#$HOME/\~}"
+
+effects=()
+[[ -n "$SILENCE" ]] && effects+=(silence 1 0.1 1% 1 "$SILENCE" 1%)
+[[ -n "$LIMIT" ]] && effects+=(trim 0 "$LIMIT")
+quality=()
+[[ "$FMT" == "ogg" ]] && quality=(-C 4)
+
+label=$(source_label "$SOURCE"); label="${label:-$SOURCE}"
+printf '%s record %s %s─%s %s%s%s\n' "$BADGE" "$X" "$D" "$X" "$B" "$label" "$X"
+hint="Ctrl+C to stop"
+[[ -n "$SILENCE" ]] && hint="starts when you speak · stops after ${SILENCE} s of silence · Ctrl+C"
+[[ -n "$LIMIT" ]] && hint="$hint · max $LIMIT"
+printf '%s%s → %s%s\n\n' "$D" "$hint" "$SHORT" "$X"
+
+# Ctrl+C: SoX gets it, closes the file properly and the script carries on.
+# (A handler, not `trap '' INT`: an ignored signal is inherited and SoX wouldn't stop.)
+trap ':' INT
+sox -q -S -t pulseaudio "$SOURCE" -c 1 "${quality[@]}" "$OUT" "${effects[@]}" 2>&1 | meter_only
+trap - INT
+echo
+
+if [[ ! -s "$OUT" ]]; then
+  rm -f "$OUT"; die "nothing was recorded"
+fi
+secs=$(soxi -D "$OUT" 2>/dev/null || echo 0)
+if awk -v s="$secs" 'BEGIN { exit !(s < 0.5) }'; then
+  rm -f "$OUT"; die "recording too short, discarded"
+fi
+
+if (( CLEAN )); then
+  tmp="${OUT%.*}.tmp.${FMT}"
+  if sox -q "$OUT" "${quality[@]}" "$tmp" highpass 80 norm -1; then mv "$tmp" "$OUT"; else rm -f "$tmp"; fi
+fi
+
+dur=$(awk -v s="$secs" 'BEGIN { s=int(s+0.5); printf "%d:%02d", s/60, s%60 }')
+size=$(du -h "$OUT" | cut -f1)
+printf '%s✓%s saved %s%s%s %s(%s · %s)%s\n' "$G" "$X" "$B" "$SHORT" "$X" "$D" "$dur" "$size" "$X"
+
+if ! command -v transcribe >/dev/null; then
+  [[ "$MODE" == "none" ]] || printf '%s(install transcribe to get transcripts: github.com/rossmelabasto/ross_transcribe)%s\n' "$D" "$X"
+  exit 0
+fi
+
+if [[ "$MODE" == "ask" ]]; then
+  if [[ -t 0 ]]; then
+    printf '%s?%s %sTranscribe?%s %s[Y]es · [s]ave .txt · [n]o%s ' "$M" "$X" "$BOLD" "$X" "$D" "$X"
+    read -r ans
+    case "${ans,,}" in
+      ""|y|yes) MODE="screen" ;;
+      s|save)   MODE="txt" ;;
+      *)        MODE="none" ;;
+    esac
+  else
+    MODE="none"
+  fi
+fi
+
+tr_args=(-l "$LANG_SPOKEN")
+case "$MODE" in
+  screen) echo; transcribe "$OUT" "${tr_args[@]}" ;;
+  txt)    echo; transcribe "$OUT" "${tr_args[@]}" -t -o ;;
+esac
