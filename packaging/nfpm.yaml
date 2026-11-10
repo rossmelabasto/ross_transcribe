@@ -36,14 +36,15 @@ contents:
 
 overrides:
   deb:
-    depends: [ffmpeg]
+    # The bundled Python checks HTTPS (the model download) against the system's certificates.
+    depends: [ffmpeg, ca-certificates]
     # record: SoX with PulseAudio input (served by PipeWire) and pactl. fd makes search faster.
     recommends: [sox, libsox-fmt-pulse, pulseaudio-utils, fd-find]
   rpm:
-    depends: [/usr/bin/ffmpeg]
+    depends: [/usr/bin/ffmpeg, ca-certificates]
     recommends: [sox, pulseaudio-utils, perl-interpreter, fd-find]
   archlinux:
-    depends: [ffmpeg, sox, libpulse, perl]
+    depends: [ffmpeg, sox, libpulse, perl, ca-certificates]
     provides: [ross-transcribe]
     conflicts: [ross-transcribe]
 
