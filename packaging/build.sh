@@ -39,6 +39,20 @@ installed=$("$py" -c 'import ross_transcribe; print(ross_transcribe.__version__)
 
 echo "==> trimming"
 site=$("$py" -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+# faster-whisper depends on PyAV (decoding, ~130 MB with its own FFmpeg) and onnxruntime (the
+# optional voice filter, ~65 MB). transcribe decodes with the system ffmpeg and doesn't use the
+# filter, and both are only touched inside functions it never calls, so they stay out. faster-
+# whisper still imports av when it loads: a stand-in module answers that import.
+"$py" -m pip uninstall --quiet -y av onnxruntime coloredlogs humanfriendly flatbuffers protobuf sympy mpmath 2>/dev/null || true
+mkdir -p "$site/av"
+cat > "$site/av/__init__.py" <<'PY'
+"""Stand-in for PyAV in the ross-transcribe packages: transcribe decodes audio with ffmpeg."""
+
+
+def __getattr__(name):
+    raise ImportError("PyAV isn't included in this build of transcribe (it decodes with ffmpeg)")
+PY
+"$py" -I -c 'import faster_whisper, ross_transcribe.engine' || { echo "imports broke after trimming" >&2; exit 1; }
 # Nothing at runtime needs pip, the test suites or the build headers.
 "$py" -m pip uninstall --quiet -y pip
 rm -rf "$prefix/python/include" "$prefix/python/share" \
@@ -49,6 +63,7 @@ find "$prefix" -name '__pycache__' -type d -prune -exec rm -rf {} +
 # Compile once at build time: /opt isn't writable for users, so Python couldn't cache it later.
 "$py" -m compileall -q -j 0 "$prefix/python/lib" >/dev/null || true
 du -sh "$prefix"
+du -sh "$site"/* | sort -h | tail -8
 
 echo "==> commands"
 cat > "$stage/usr/bin/transcribe" <<'EOF'
@@ -66,11 +81,13 @@ install -Dm644 "$root/LICENSE" "$stage/usr/share/licenses/ross-transcribe/LICENS
 install -Dm644 "$root/README.md" "$stage/usr/share/doc/ross-transcribe/README.md"
 
 echo "==> packages"
-export VERSION="$version" STAGE="$stage"
 for packager in deb rpm archlinux; do
   # Arch names prebuilt packages -bin.
-  PKG_NAME=ross-transcribe
-  [ "$packager" = archlinux ] && PKG_NAME=ross-transcribe-bin
-  PKG_NAME=$PKG_NAME nfpm package --config "$root/packaging/nfpm.yaml" --packager "$packager" --target "$out/"
+  name=ross-transcribe
+  [ "$packager" = archlinux ] && name=ross-transcribe-bin
+  # nfpm doesn't expand variables in file paths: fill the config in first.
+  VERSION="$version" STAGE="$stage" PKG_NAME="$name" \
+    envsubst '${VERSION} ${STAGE} ${PKG_NAME}' < "$root/packaging/nfpm.yaml" > "$work/nfpm.yaml"
+  nfpm package --config "$work/nfpm.yaml" --packager "$packager" --target "$out/"
 done
 ls -la "$out"
