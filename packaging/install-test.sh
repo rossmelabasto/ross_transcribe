@@ -8,13 +8,20 @@ set -euo pipefail
 kind=$1 pkg=$(realpath "$2") version=$3
 
 # The newest ross-record package of the given type (deb, rpm or pkg.tar.zst), from its GitHub release.
+# The version comes from the redirect of releases/latest (no API call: the API rate-limits shared CI runners).
 fetch_record() {
-  local url
-  url=$(curl -fsSL https://api.github.com/repos/rossmelabasto/ross_record/releases/latest \
-        | grep -o '"browser_download_url": *"[^"]*\.'"$1"'"' | sed 's/.*"\(http[^"]*\)"$/\1/' | head -1)
-  [ -n "$url" ] || { echo "no ross-record .$1 in its latest release" >&2; exit 1; }
-  curl -fsSL -o "/tmp/ross-record.$1" "$url"
-  echo "/tmp/ross-record.$1"
+  local tag v file
+  tag=$(curl -fsSI https://github.com/rossmelabasto/ross_record/releases/latest | tr -d '\r' \
+        | sed -n 's#^[Ll]ocation: .*/tag/\(v[0-9.]*\)$#\1#p' | tail -1)
+  [ -n "$tag" ] || { echo "can't find the latest ross_record release" >&2; exit 1; }
+  v=${tag#v}
+  case "$1" in
+    deb) file="ross-record_${v}-1_all.deb" ;;
+    rpm) file="ross-record-${v}-1.noarch.rpm" ;;
+    pkg.tar.zst) file="ross-record-${v}-1-any.pkg.tar.zst" ;;
+  esac
+  curl -fsSL -o "/tmp/$file" "https://github.com/rossmelabasto/ross_record/releases/download/$tag/$file"
+  echo "/tmp/$file"
 }
 
 case "$kind" in
@@ -52,7 +59,8 @@ record -h | head -2
 echo "--- a real transcription"
 espeak-ng -v en -s 140 -w /tmp/speech.wav "Hello world. This is a quick transcription test."
 LANG=C.UTF-8 transcribe /tmp/speech.wav -m tiny -l en --device cpu | tee /tmp/out.txt
-grep -qi 'hello' /tmp/out.txt
+# The tiny model sometimes hears "Hello" as something else: check two words it always gets.
+grep -qi 'world' /tmp/out.txt
 grep -qi 'test' /tmp/out.txt
 
 echo "Install test passed on $kind"
