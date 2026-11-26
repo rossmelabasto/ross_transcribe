@@ -14,7 +14,7 @@ license: MIT
 description: |-
   Local, offline audio and video transcription from the terminal.
   An interactive picker, timestamps and subtitles, powered by faster-whisper.
-  Includes record, which records from the microphone and offers to transcribe it.
+  Installs record (the ross-record package), which records from the microphone and offers to transcribe it.
 
 contents:
   - src: ${STAGE}/opt/ross-transcribe
@@ -26,9 +26,6 @@ contents:
   - src: ${STAGE}/usr/bin/transcribir
     dst: /usr/bin/transcribir
     file_info: { mode: 0755 }
-  - src: ${STAGE}/usr/bin/record
-    dst: /usr/bin/record
-    file_info: { mode: 0755 }
   - src: ${STAGE}/usr/share/licenses/ross-transcribe/LICENSE
     dst: /usr/share/licenses/ross-transcribe/LICENSE
   - src: ${STAGE}/usr/share/doc/ross-transcribe/README.md
@@ -37,14 +34,15 @@ contents:
 overrides:
   deb:
     # The bundled Python checks HTTPS (the model download) against the system's certificates.
-    depends: [ffmpeg, ca-certificates]
-    # record: SoX with PulseAudio input (served by PipeWire) and pactl. fd makes search faster.
-    recommends: [sox, libsox-fmt-pulse, pulseaudio-utils, fd-find]
+    # record lives in its own package since 0.3.0 (github.com/rossmelabasto/ross_record).
+    depends: [ffmpeg, ca-certificates, ross-record]
+    # fd makes the whole-machine search faster.
+    recommends: [fd-find]
   rpm:
-    depends: [/usr/bin/ffmpeg, ca-certificates]
-    recommends: [sox, pulseaudio-utils, perl-interpreter, fd-find]
+    depends: [/usr/bin/ffmpeg, ca-certificates, ross-record]
+    recommends: [fd-find]
   archlinux:
-    depends: [ffmpeg, sox, libpulse, perl, ca-certificates]
+    depends: [ffmpeg, ross-record, ca-certificates]
     provides: [ross-transcribe]
     conflicts: [ross-transcribe]
 

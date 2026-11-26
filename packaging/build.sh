@@ -5,7 +5,6 @@
 #                                 its dependencies, so it doesn't depend on the distro's Python
 #   /usr/bin/transcribe           the CLI
 #   /usr/bin/transcribir          the same with the interface and audio in Spanish by default
-#   /usr/bin/record               record from the microphone, then offer to transcribe
 #
 #   packaging/build.sh <version> <out-dir>      (runs on Linux x86_64; needs curl and nfpm)
 set -euo pipefail
@@ -75,7 +74,6 @@ cat > "$stage/usr/bin/transcribir" <<'EOF'
 # transcribe with the interface and the audio in Spanish by default; -l en / -l auto changes it.
 TRANSCRIBE_UI_LANG="${TRANSCRIBE_UI_LANG:-es}" TRANSCRIBE_LANG="${TRANSCRIBE_LANG:-es}" exec /usr/bin/transcribe "$@"
 EOF
-install -m755 "$root/bin/record" "$stage/usr/bin/record"
 chmod 755 "$stage/usr/bin/"*
 install -Dm644 "$root/LICENSE" "$stage/usr/share/licenses/ross-transcribe/LICENSE"
 install -Dm644 "$root/README.md" "$stage/usr/share/doc/ross-transcribe/README.md"

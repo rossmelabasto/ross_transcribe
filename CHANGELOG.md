@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0 — 2026-11-26 — record moves to ross_record
+
+- `record` is now its own project, [ross_record](https://github.com/rossmelabasto/ross_record) (package `ross-record`). The transcribe packages depend on it, so `record` keeps working after the update.
+- The transcribe packages no longer pull in SoX, `pactl` or Perl themselves: `ross-record` brings them.
+
 ## 0.2.0 — 2026-11-10 — Packages and record
 
 - Signed packages for pacman (`ross-transcribe-bin`), APT and DNF (`ross-transcribe`) from [repo.rossmel.com](https://repo.rossmel.com/transcribe/). They carry their own Python, so the distribution's Python version doesn't matter.

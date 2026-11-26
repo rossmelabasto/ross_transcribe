@@ -42,7 +42,7 @@ sudo apt install ross-transcribe     # Ubuntu, Debian
 sudo dnf install ross-transcribe     # Fedora
 ```
 
-They include [`record`](#record) and `transcribir` (the same CLI with the interface and audio in
+They include [`record`](#record) (from its own package, [ross_record](https://github.com/rossmelabasto/ross_record)) and `transcribir` (the same CLI with the interface and audio in
 Spanish by default). More at [repo.rossmel.com/transcribe](https://repo.rossmel.com/transcribe/).
 
 ### With pipx or uv (Linux and macOS)
@@ -67,7 +67,8 @@ The first run downloads the Whisper model (~460 MB for the default `small`) from
 ## record
 
 `record` records from the microphone with a live level meter and, when you stop, offers to
-transcribe what you said. It comes with the packages; it needs SoX and `pactl`.
+transcribe what you said. Since 0.3.0 it's its own project, [ross_record](https://github.com/rossmelabasto/ross_record):
+the packages install it as a dependency (`ross-record`), so it's still there after you update.
 
 ```bash
 record                    # record until Ctrl+C, then choose: transcribe, save a .txt or nothing
